@@ -2,8 +2,8 @@
 <html lang="zh-TW">
 <head>
   <meta charset="UTF-8">
-  <title>QR Code 掃描系統</title>
-
+  <title>QR Code 掃描系統（切換鏡頭版）</title>
+  
   <!-- QR Library -->
   <script src="https://unpkg.com/html5-qrcode"></script>
 
@@ -33,6 +33,7 @@
 
     .start { background: #4CAF50; color: white; }
     .stop { background: #f44336; color: white; }
+    .switch { background: #2196F3; color: white; }
 
     #result {
       margin-top: 20px;
@@ -52,6 +53,7 @@
 <div>
   <button class="btn start" onclick="startScanner()">開啟掃描</button>
   <button class="btn stop" onclick="stopScanner()">關閉掃描</button>
+  <button class="btn switch" onclick="switchCamera()">切換鏡頭</button>
 </div>
 
 <div id="result">掃描結果：尚未掃描</div>
@@ -59,59 +61,74 @@
 <script>
 let scanner = null;
 let isScanning = false;
+let cameras = [];
+let currentCameraIndex = 0;
 
+// 啟動掃描
 function startScanner() {
   if (isScanning) return;
 
   scanner = new Html5Qrcode("reader");
 
   Html5Qrcode.getCameras().then(devices => {
-    if (devices && devices.length) {
-
-      // 優先選後鏡頭
-      let cameraId = devices[0].id;
-      const backCam = devices.find(d =>
-        d.label.toLowerCase().includes("back") ||
-        d.label.toLowerCase().includes("rear")
-      );
-      if (backCam) cameraId = backCam.id;
-
-      scanner.start(
-        cameraId,
-        {
-          fps: 20,
-          qrbox: { width: 250, height: 250 }
-        },
-        (decodedText) => {
-          // 顯示結果
-          document.getElementById("result").innerText =
-            "✅ 掃描成功： " + decodedText;
-
-          // 📳 手機震動
-          if (navigator.vibrate) {
-            navigator.vibrate(200);
-          }
-
-          // 🔊 提示音
-          playBeep();
-
-          // 不停止 → 可連續掃描（要停止就加 stopScanner();）
-        },
-        (errorMessage) => {
-          // 忽略掃描錯誤
-        }
-      );
-
-      isScanning = true;
-
-    } else {
+    if (!devices || devices.length === 0) {
       alert("找不到鏡頭");
+      return;
     }
+
+    cameras = devices; // 儲存所有鏡頭
+    currentCameraIndex = 0; // 預設第一個
+
+    startCameraByIndex(currentCameraIndex);
   }).catch(err => {
-    alert("鏡頭錯誤：" + err);
+    alert("取得鏡頭失敗：" + err);
   });
 }
 
+// 根據索引啟動鏡頭
+function startCameraByIndex(index) {
+  if (!cameras || cameras.length === 0) return;
+
+  const cameraId = cameras[index].id;
+
+  scanner.start(
+    cameraId,
+    {
+      fps: 20,
+      qrbox: { width: 250, height: 250 }
+    },
+    (decodedText) => {
+      document.getElementById("result").innerText = "✅ 掃描成功：" + decodedText;
+
+      // 手機震動
+      if (navigator.vibrate) navigator.vibrate(200);
+      // 提示音
+      playBeep();
+    },
+    (errorMessage) => {
+      // 忽略掃描錯誤
+    }
+  ).then(() => {
+    isScanning = true;
+  }).catch(err => {
+    alert("啟動鏡頭失敗：" + err);
+  });
+}
+
+// 切換鏡頭
+function switchCamera() {
+  if (!cameras || cameras.length < 2) return; // 沒有可切換鏡頭
+  if (!scanner) return;
+
+  currentCameraIndex = (currentCameraIndex + 1) % cameras.length;
+
+  scanner.stop().then(() => {
+    isScanning = false;
+    startCameraByIndex(currentCameraIndex);
+  });
+}
+
+// 停止掃描
 function stopScanner() {
   if (scanner && isScanning) {
     scanner.stop().then(() => {
@@ -121,7 +138,7 @@ function stopScanner() {
   }
 }
 
-// 🔊 簡單提示音
+// 🔊 提示音
 function playBeep() {
   const audio = new Audio("https://www.soundjay.com/buttons/beep-01a.mp3");
   audio.play();
