@@ -2,7 +2,11 @@
 <html lang="zh-TW">
 <head>
   <meta charset="UTF-8">
-  <title>相機測試</title>
+  <title>QR掃描器</title>
+
+  <!-- QR Library -->
+  <script src="https://unpkg.com/html5-qrcode"></script>
+
   <style>
     body {
       text-align: center;
@@ -10,62 +14,69 @@
       background: #f5f5f5;
     }
 
-    #video {
-      width: 80%;
-      max-width: 500px;
-      margin-top: 30px;
-      border-radius: 12px;
-      background: black;
+    #reader {
+      width: 300px;
+      margin: 20px auto;
     }
 
     .btn {
-      margin: 20px 10px;
+      margin: 10px;
       padding: 10px 20px;
-      font-size: 16px;
-      border: none;
       border-radius: 8px;
+      border: none;
+      font-size: 16px;
       cursor: pointer;
     }
 
-    .start {
-      background-color: #4CAF50;
-      color: white;
-    }
-
-    .stop {
-      background-color: #f44336;
-      color: white;
-    }
+    .start { background: #4CAF50; color: white; }
+    .stop { background: #f44336; color: white; }
   </style>
 </head>
 
 <body>
 
-<h2>📷 鏡頭預覽</h2>
+<h2>📷 QR Code 掃描</h2>
 
-<video id="video" autoplay playsinline></video>
+<div id="reader"></div>
 
 <div>
-  <button class="btn start" onclick="startCamera()">開啟鏡頭</button>
-  <button class="btn stop" onclick="stopCamera()">關閉鏡頭</button>
+  <button class="btn start" onclick="startScanner()">開啟掃描</button>
+  <button class="btn stop" onclick="stopScanner()">關閉掃描</button>
 </div>
 
-<script>
-let stream = null;
+<h3 id="result">掃描結果：</h3>
 
-async function startCamera() {
-  try {
-    stream = await navigator.mediaDevices.getUserMedia({ video: true });
-    document.getElementById("video").srcObject = stream;
-  } catch (err) {
-    alert("無法開啟鏡頭：" + err.message);
-  }
+<script>
+let scanner;
+
+function startScanner() {
+  scanner = new Html5Qrcode("reader");
+
+  scanner.start(
+    { facingMode: "environment" }, // 後鏡頭
+    {
+      fps: 10,
+      qrbox: 250
+    },
+    (decodedText) => {
+      document.getElementById("result").innerText = "掃描結果：" + decodedText;
+
+      // 掃到就停止（可拿掉）
+      stopScanner();
+    },
+    (errorMessage) => {
+      // 可忽略掃描錯誤
+    }
+  ).catch(err => {
+    alert("啟動失敗：" + err);
+  });
 }
 
-function stopCamera() {
-  if (stream) {
-    stream.getTracks().forEach(track => track.stop());
-    document.getElementById("video").srcObject = null;
+function stopScanner() {
+  if (scanner) {
+    scanner.stop().then(() => {
+      console.log("已停止");
+    });
   }
 }
 </script>
