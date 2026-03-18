@@ -2,7 +2,7 @@
 <html lang="zh-TW">
 <head>
   <meta charset="UTF-8">
-  <title>QR掃描器</title>
+  <title>QR Code 掃描系統</title>
 
   <!-- QR Library -->
   <script src="https://unpkg.com/html5-qrcode"></script>
@@ -15,27 +15,37 @@
     }
 
     #reader {
-      width: 300px;
+      width: 320px;
       margin: 20px auto;
+      border: 3px solid #333;
+      border-radius: 12px;
+      overflow: hidden;
     }
 
     .btn {
       margin: 10px;
-      padding: 10px 20px;
-      border-radius: 8px;
-      border: none;
+      padding: 12px 25px;
       font-size: 16px;
+      border: none;
+      border-radius: 10px;
       cursor: pointer;
     }
 
     .start { background: #4CAF50; color: white; }
     .stop { background: #f44336; color: white; }
+
+    #result {
+      margin-top: 20px;
+      font-size: 18px;
+      color: #333;
+      word-break: break-all;
+    }
   </style>
 </head>
 
 <body>
 
-<h2>📷 QR Code 掃描</h2>
+<h2>📷 QR Code 掃描系統</h2>
 
 <div id="reader"></div>
 
@@ -44,40 +54,77 @@
   <button class="btn stop" onclick="stopScanner()">關閉掃描</button>
 </div>
 
-<h3 id="result">掃描結果：</h3>
+<div id="result">掃描結果：尚未掃描</div>
 
 <script>
-let scanner;
+let scanner = null;
+let isScanning = false;
 
 function startScanner() {
+  if (isScanning) return;
+
   scanner = new Html5Qrcode("reader");
 
-  scanner.start(
-    { facingMode: "environment" }, // 後鏡頭
-    {
-      fps: 10,
-      qrbox: 250
-    },
-    (decodedText) => {
-      document.getElementById("result").innerText = "掃描結果：" + decodedText;
+  Html5Qrcode.getCameras().then(devices => {
+    if (devices && devices.length) {
 
-      // 掃到就停止（可拿掉）
-      stopScanner();
-    },
-    (errorMessage) => {
-      // 可忽略掃描錯誤
+      // 優先選後鏡頭
+      let cameraId = devices[0].id;
+      const backCam = devices.find(d =>
+        d.label.toLowerCase().includes("back") ||
+        d.label.toLowerCase().includes("rear")
+      );
+      if (backCam) cameraId = backCam.id;
+
+      scanner.start(
+        cameraId,
+        {
+          fps: 20,
+          qrbox: { width: 250, height: 250 }
+        },
+        (decodedText) => {
+          // 顯示結果
+          document.getElementById("result").innerText =
+            "✅ 掃描成功： " + decodedText;
+
+          // 📳 手機震動
+          if (navigator.vibrate) {
+            navigator.vibrate(200);
+          }
+
+          // 🔊 提示音
+          playBeep();
+
+          // 不停止 → 可連續掃描（要停止就加 stopScanner();）
+        },
+        (errorMessage) => {
+          // 忽略掃描錯誤
+        }
+      );
+
+      isScanning = true;
+
+    } else {
+      alert("找不到鏡頭");
     }
-  ).catch(err => {
-    alert("啟動失敗：" + err);
+  }).catch(err => {
+    alert("鏡頭錯誤：" + err);
   });
 }
 
 function stopScanner() {
-  if (scanner) {
+  if (scanner && isScanning) {
     scanner.stop().then(() => {
-      console.log("已停止");
+      isScanning = false;
+      document.getElementById("reader").innerHTML = "";
     });
   }
+}
+
+// 🔊 簡單提示音
+function playBeep() {
+  const audio = new Audio("https://www.soundjay.com/buttons/beep-01a.mp3");
+  audio.play();
 }
 </script>
 
